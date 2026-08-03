@@ -366,6 +366,7 @@ export default function App() {
             if (axis === "z") newLogical = [cA * x - s * y, s * x + cA * y, z];
 
             const newColors = rotateColors(c, axis, angle);
+
             const [lx, ly, lz] = newLogical.map(Math.round);
             const visualColors = newColors.map((color, i) => {
               if (i === FACE_INDICES.XPOS && lx !== 1) return "gray";
@@ -387,20 +388,28 @@ export default function App() {
   return (
     <div style={{ height: "100vh", width: "100vw" }}>
       <div style={{ position: "absolute", top: 20, left: 20, color: "#fff", fontSize: 20, fontWeight: "bold", zIndex: 1 }}>
-        Кубик Рубика: Управление по ребрам
+        Настоящий Кубик Рубика
+      </div>
+
+      <div style={{ position: "absolute", top: 60, left: 20, zIndex: 1 }}>
+        {["x", "y", "z"].map((axis) =>
+          [-1, 0, 1].map((layer) => (
+            <button key={axis + layer} onClick={() => rotateLayer(axis, layer, Math.PI / 2)}>
+              {axis.toUpperCase()}={layer} +90°
+            </button>
+          ))
+        )}
       </div>
 
       <Canvas camera={{ position: [6, 6, 6], fov: 50 }}>
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[5, 5, 5]} intensity={1.2} />
-        <directionalLight position={[-5, -8, -5]} intensity={0.4} />
+        <ambientLight intensity={0.5} />
+        <directionalLight position={[5, 5, 5]} intensity={1} />
 
         <group ref={groupRef}>
           {cubeState.map((c) => (
-            <CubeletWithControllers
+            <Cubelet
               key={c.index}
-              position={c.logicalPos}
-              logicalPos={c.logicalPos}
+              position={getVisualPos(c.logicalPos)}
               colors={c.colors}
               cubeRef={(el) => (cubeRefs.current[c.index] = el)}
             />
