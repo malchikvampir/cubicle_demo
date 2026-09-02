@@ -223,11 +223,23 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { gsap } from "gsap";
 import { Group } from "three";
-import CubeletWithControllers from "./CubeletWithControllers";
 
 const FACE_INDICES = { XPOS: 0, XNEG: 1, YPOS: 2, YNEG: 3, ZPOS: 4, ZNEG: 5 };
 const FACE_COLORS = ["white", "yellow", "blue", "lightgreen", "red", "orange"];
 
+// Cubelet с 6 гранями
+function Cubelet({ position, colors, cubeRef }) {
+  return (
+    <mesh position={position} ref={cubeRef}>
+      <boxGeometry args={[0.9, 0.9, 0.9]} />
+      {colors.map((color, i) => (
+        <meshStandardMaterial key={i} attach={`material-${i}`} color={color} />
+      ))}
+    </mesh>
+  );
+}
+
+// Создание кубика с логическими координатами
 const createCubeState = () => {
   const arr = [];
   let idx = 0;
@@ -250,6 +262,7 @@ const createCubeState = () => {
   return arr;
 };
 
+// Вращение цветов внешних граней
 const rotateColors = (c, axis, angle) => {
   const newColors = [...c.colors];
   const cw = angle > 0;
@@ -262,11 +275,36 @@ const rotateColors = (c, axis, angle) => {
   }
 
   if (axis === "y") {
-    [newColors[FACE_INDICES.XPOS], newColors[FACE_INDICES.ZPOS], newColors[FACE_INDICES.XNEG], newColors[FACE_INDICES.ZNEG]] =
+    [newColors[FACE_INDICES.XPOS],
+     newColors[FACE_INDICES.ZPOS],
+     newColors[FACE_INDICES.XNEG],
+     newColors[FACE_INDICES.ZNEG]] =
       cw
-        ? [c.colors[FACE_INDICES.ZPOS], c.colors[FACE_INDICES.XNEG], c.colors[FACE_INDICES.ZNEG], c.colors[FACE_INDICES.XPOS]]
-        : [c.colors[FACE_INDICES.ZNEG], c.colors[FACE_INDICES.XPOS], c.colors[FACE_INDICES.ZPOS], c.colors[FACE_INDICES.XNEG]];
+        ? [
+            c.colors[FACE_INDICES.ZNEG],
+            c.colors[FACE_INDICES.XPOS],
+            c.colors[FACE_INDICES.ZPOS],
+            c.colors[FACE_INDICES.XNEG],
+          ]
+        : [
+            c.colors[FACE_INDICES.ZPOS],
+            c.colors[FACE_INDICES.XNEG],
+            c.colors[FACE_INDICES.ZNEG],
+            c.colors[FACE_INDICES.XPOS],
+          ];
   }
+
+  // if (axis === "y") {
+  //   [
+        //   newColors[FACE_INDICES.XPOS], 
+        //   newColors[FACE_INDICES.ZPOS], 
+        //   newColors[FACE_INDICES.XNEG], 
+        //   newColors[FACE_INDICES.ZNEG]
+        // ] =
+  //     cw
+  //       ? [c.colors[FACE_INDICES.ZNEG], c.colors[FACE_INDICES.XPOS], c.colors[FACE_INDICES.ZPOS], c.colors[FACE_INDICES.XNEG]]
+  //       : [c.colors[FACE_INDICES.ZPOS], c.colors[FACE_INDICES.XNEG], c.colors[FACE_INDICES.ZNEG], c.colors[FACE_INDICES.XPOS]];
+  // }
 
   if (axis === "z") {
     [newColors[FACE_INDICES.XPOS], newColors[FACE_INDICES.YPOS], newColors[FACE_INDICES.XNEG], newColors[FACE_INDICES.YNEG]] =
@@ -282,19 +320,16 @@ export default function App() {
   const groupRef = useRef();
   const cubeRefs = useRef([]);
   const [cubeState, setCubeState] = useState(createCubeState());
-  const isAnimating = useRef(false);
+
+  const getVisualPos = (logicalPos) => logicalPos.map((v) => v);
 
   const rotateLayer = (axis, layer, angle) => {
-    if (isAnimating.current) return;
-    isAnimating.current = true;
-
     const selectedCubes = cubeState
       .filter((c) => {
         const [x, y, z] = c.logicalPos;
         if (axis === "x") return x === layer;
         if (axis === "y") return y === layer;
         if (axis === "z") return z === layer;
-        return null;
       })
       .map((c) => cubeRefs.current[c.index]);
 
@@ -304,7 +339,7 @@ export default function App() {
 
     gsap.to(tempGroup.rotation, {
       [axis]: "+=" + angle,
-      duration: 0.4,
+      duration: 0.5,
       ease: "power2.inOut",
       onComplete: () => {
         selectedCubes.forEach((c) => groupRef.current.add(c));
@@ -320,12 +355,18 @@ export default function App() {
             let newLogical = [x, y, z];
 
             if (axis === "x") newLogical = [x, cA * y - s * z, s * y + cA * z];
-            if (axis === "y") newLogical = [cA * x + s * z, y, -s * x + cA * z];
+
+            if (axis === "y") {
+              const adjustedAngle = angle;
+              const s = Math.round(Math.sin(adjustedAngle));
+              const cA = Math.round(Math.cos(adjustedAngle));
+              newLogical = [cA * x - s * z, y, s * x - cA * z];
+            }
+
             if (axis === "z") newLogical = [cA * x - s * y, s * x + cA * y, z];
 
             const newColors = rotateColors(c, axis, angle);
             const [lx, ly, lz] = newLogical.map(Math.round);
-
             const visualColors = newColors.map((color, i) => {
               if (i === FACE_INDICES.XPOS && lx !== 1) return "gray";
               if (i === FACE_INDICES.XNEG && lx !== -1) return "gray";
@@ -339,13 +380,12 @@ export default function App() {
             return { ...c, logicalPos: newLogical, colors: visualColors };
           })
         );
-        isAnimating.current = false;
       },
     });
   };
 
   return (
-    <div style={{ height: "100vh", width: "100vw", background: "#111" }}>
+    <div style={{ height: "100vh", width: "100vw" }}>
       <div style={{ position: "absolute", top: 20, left: 20, color: "#fff", fontSize: 20, fontWeight: "bold", zIndex: 1 }}>
         Кубик Рубика: Управление по ребрам
       </div>
@@ -363,12 +403,11 @@ export default function App() {
               logicalPos={c.logicalPos}
               colors={c.colors}
               cubeRef={(el) => (cubeRefs.current[c.index] = el)}
-              onRotate={rotateLayer}
             />
           ))}
         </group>
 
-        <OrbitControls makeDefault />
+        <OrbitControls />
       </Canvas>
     </div>
   );
